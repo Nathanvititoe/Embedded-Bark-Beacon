@@ -9,7 +9,7 @@ The LED should be lit up continuously whenever the motor is on, and off whenever
 const int pushBtn = 5;  // D5
 Bounce debouncer = Bounce(); // btn debouncer
 
-const int led = 2;      // D2
+// const int led = 2;      // D2
 const int motor = 9;    // D9
 
 void setup() {
@@ -17,7 +17,7 @@ void setup() {
   Serial.begin(9600);
 
   // init components
-  pinMode(led, OUTPUT);
+  // pinMode(led, OUTPUT);
   pinMode(motor, OUTPUT);
 
   // init pushbtn/debounce
@@ -33,7 +33,7 @@ void setup() {
   // start motor/led as off
   digitalWrite(LED_BUILTIN, LOW);
   digitalWrite(motor, LOW);
-  digitalWrite(led, LOW);
+  // digitalWrite(led, LOW);
   Serial.println("Setup Complete.");
 }
 
@@ -46,18 +46,17 @@ void loop() {
     Serial.println("bark");
     barkEvent();
   }
-  int btnState = digitalRead(pushBtn);
-  Serial.println(btnState);
 }
 
 // what to run when a bark occurs
 void barkEvent() {
   Serial.println("Bark Event Occurred.");
   // 2s bark correction
-  digitalWrite(led, HIGH);    // turn on bark/motor light
+  // digitalWrite(led, HIGH);    // turn on bark/motor light
   digitalWrite(motor, HIGH);  // vibrate 2s
+  delay(2000); // 2s motor duration
 
   // reset light and motor (turn off)
   digitalWrite(motor, LOW);
-  digitalWrite(led, LOW);
+  // digitalWrite(led, LOW);
 }
