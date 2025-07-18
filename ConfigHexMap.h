@@ -1,3 +1,7 @@
+#if 0
+// CONFIG CHEAT SHEET
+
+
 /*
 Bark, Growl, Whine, Howl
 
@@ -21,3 +25,5 @@ bitmask / Hex to send
 1110	0E (bark, growl, whine)
 1111	0F (all classes)
 */
+
+#endif
