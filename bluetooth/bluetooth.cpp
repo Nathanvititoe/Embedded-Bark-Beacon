@@ -1,14 +1,16 @@
 #include <Arduino.h>
 #include <ArduinoBLE.h>
 #include "bluetooth.h"
-#include "correctionConfig.h"
+#include "../correctionConfig/correctionConfig.h"
 
 // external globals
 extern BLEService configService;
 extern BLEByteCharacteristic bitmask;
 extern uint8_t bitmaskConfig;
 
-// configure the BLE service
+/*
+* configure the BLE service
+*/
 void initializeBLE() {
   BLE.begin();  // init BLE and configure
   BLE.setLocalName("Bark Beacon");
@@ -22,8 +24,9 @@ void initializeBLE() {
   Serial.println("BLE Setup Complete.");
 }
 
-
-// if updated data is received when polling, handle it
+/*
+* if updated data is received when polling, handle it
+*/
 void receiveBLETransmit() {
   if (bitmask.written()) {
     uint8_t newBitmaskConfig = bitmask.value();  // read received bitmask value

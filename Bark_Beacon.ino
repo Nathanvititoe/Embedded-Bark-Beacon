@@ -15,13 +15,27 @@ Send config values from lightBlue app in order to determine whether a correction
 17July-
 Switch to Arduino Nano BLE Sense w/ built in microphone
 split logic into their own .h and cpp files
+
+27July -
+Created cpp file with c array of my model
+Incorporate MicroTFLite to utilize my machine learning model for inferences
+Used example file https://github.com/johnosbb/MicroTFLite/tree/main/examples/ArduinoNano33BLE_GestureClassifier
 */
 
-#include <ArduinoBLE.h>        // bluetooth
-#include <PDM.h>               // built-in microphone
-#include "microphone.h"        // microphone header
-#include "bluetooth.h"         // bluetooth header
-#include "correctionConfig.h"  // user config and correction logic header
+#include <ArduinoBLE.h>   // bluetooth
+#include <PDM.h>          // built-in microphone
+#include "MicroTFLite.h"  // TF Lite header
+
+#include "bluetooth/bluetooth.cpp"                // bluetooth logic
+#include "microphone/microphone.cpp"              // microphone logic
+#include "correctionConfig/correctionConfig.cpp"  // user config and correction logic header
+#include "audio_classifier/audio_classifier.cpp"  // custom audio classification model
+#include "classifier_logic/classifier_logic.cpp"  // embedded logic for the ml model
+
+// #include "microphone/microphone.h"
+// #include "bluetooth/bluetooth.h"
+// #include "correctionConfig/correctionConfig.h"
+// #include "audio_classifier/audio_classifier.h"
 
 // TODO: Figure out config storage that's board compatible
 
@@ -30,7 +44,8 @@ BLEService configService("180C");                 // UUID
 BLEByteCharacteristic bitmask("2A56", BLEWrite);  // define the received byte
 
 // set default user configuration global
-const uint8_t defaultConfig = 0b0000;
+// const uint8_t defaultConfig = 0b0000; // no vocalization corrections
+const uint8_t defaultConfig = 0b1111; // all vocalization corrected
 uint8_t bitmaskConfig;  // init config variable
 
 // configure built-in microphone globals
@@ -40,29 +55,44 @@ const int bufferSize = 512;          // 512 byte buffer
 short sampleBuffer[bufferSize / 2];  // 2 bytes per sample
 volatile int samplesRead = 0;        // TEST VAR
 
+// [IMPORTANT] ADJUST ARENA SIZE AFTER INITIAL SETUP
+
+// configure audio classifier
+const int inputLength = 1024;                                                                  // input dimension
+constexpr int tensorArenaSize = 8 * 1024;                                                      // [ESTIMATED] Tensor Arena size
+alignas(16) byte tensorArena[tensorArenaSize];                                                 // Tensor Arena memory
+const char* vocalization_labels[] = { "bark", "growl", "whine", "howl" };                      // Vocalization labels
+const int num_vocalizations = (sizeof(vocalization_labels) / sizeof(vocalization_labels[0]));  // Number of vocalizations
+
 // ========= TO BE ADJUSTED ==================
 const int amplitudeThreshold = 5000;  // must be *this* loud to trigger
-const int gain = 60; // adjust for input sensitivity
+const int gain = 60;                  // adjust for input sensitivity
 // ==========================================
 
 // init motor output pin
 const int motor = 2;  // D2
 
-// arduino initial setup
+/*
+* arduino initial setup
+*/
 void setup() {
   initializeSerial();             // init serial connection
   bitmaskConfig = defaultConfig;  // init config
 
   // init components
-  initializeVibrationMotor();  // init motor
-  initializeMicrophone();      // init microphone
-  initializeBLE();             // init bluetooth
+  initializeVibrationMotor();                           // init motor
+  initializeMicrophone();                               // init microphone
+  initializeBLE();                                      // init bluetooth
+  initialize_classifier(tensorArena, tensorArenaSize);  // init audio classifier
 
+  // quick test
   applyCorrection(true);  // test motor w/ correction
   Serial.println("Setup Complete.");
 }
 
-// continuous arduino loop
+/*
+* continuous arduino loop
+*/
 void loop() {
   // keep bluetooth connection open for config changes
   BLE.poll();               // non-blocking poll to the BLE connection for new data
@@ -71,7 +101,9 @@ void loop() {
 }
 
 
-// initialize the Serial connection
+/*
+* initialize the Serial connection
+*/
 void initializeSerial() {
   // int serialBaud = 1000000; // 1mb baud for serial connection
   int serialBaud = 500000;   // 500kb baud for test, allow for println

@@ -2,7 +2,7 @@
 #ifndef CORRECTIONCONFIG_H
 #define CORRECTIONCONFIG_H
 
-#include <Arduino.h>  
+#include <Arduino.h>
 
 void initializeVibrationMotor();
 void isCorrectable(String label);
@@ -11,7 +11,7 @@ uint8_t getClassBit(String label);
 bool validateBitmask(uint8_t bitmask);
 
 extern uint8_t bitmaskConfig;
-extern const int motor; 
-extern const uint8_t defaultConfig; 
+extern const int motor;
+extern const uint8_t defaultConfig;
 
 #endif

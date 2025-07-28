@@ -6,13 +6,17 @@ extern const int motor;
 extern uint8_t bitmaskConfig;
 extern const uint8_t defaultConfig;
 
-// init vibration motor
+/*
+* init vibration motor
+*/
 void initializeVibrationMotor() {
   pinMode(motor, OUTPUT);
   digitalWrite(motor, LOW);
 }
 
-// check if a vocalization is marked as correctable in the saved bitmask config
+/*
+*  check if a vocalization is marked as correctable in the saved bitmask config
+*/
 void isCorrectable(String label) {
   Serial.print(label);
   Serial.println(" detected.");
@@ -28,7 +32,9 @@ void isCorrectable(String label) {
   }
 }
 
-// turn on vibration motor for 2s
+/* 
+*  turn on vibration motor for 2s
+*/
 void applyCorrection(bool isInitial) {
   // 2s correction
   digitalWrite(motor, HIGH);  // vibrate 2s
@@ -43,7 +49,10 @@ void applyCorrection(bool isInitial) {
   }
 }
 
-// map each class to a bit value
+
+/*
+*  map each class to a bit value
+*/
 uint8_t getClassBit(String label) {
   label.toLowerCase();  // ensure label is lowercase
   if (label == "bark") return 0b1000;
@@ -54,7 +63,9 @@ uint8_t getClassBit(String label) {
 }
 
 
-// return true if bitmask is within the expected range, false if not
+/* 
+* return true if bitmask is within the expected range, false if not
+*/
 bool validateBitmask(uint8_t bitmask) {
   if (bitmask <= 0b1111) {
     Serial.println("--------------------");
@@ -67,6 +78,6 @@ bool validateBitmask(uint8_t bitmask) {
   }
   // if out of range, set global to default, return false
   bitmaskConfig = defaultConfig;
-  Serial.println("Invalid Bitmask Config, defaulting to no corrections.");
+  Serial.println("Invalid Bitmask Config, using default Config.");
   return false;
 }

@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <PDM.h>
 #include "microphone.h"
-#include "correctionConfig.h"
+#include "../correctionConfig/correctionConfig.h"
+#include "../classifier_logic/classifier_logic.h"
 
 // external globals from main
 extern const int amplitudeThreshold;
@@ -9,14 +10,17 @@ extern const int gain;
 extern const int bufferSize;
 extern short sampleBuffer[];
 extern volatile int samplesRead;
-// =========== TEST VAR =================
-String simulatedPrediction = "growl";
+extern const int inputLength;
+extern const char* vocalization_labels[];
+// extern const int num_vocalizations;
 
-// configure microphone settings
+/*
+* configure microphone settings
+*/
 void initializeMicrophone() {
   PDM.onReceive(onMicReceive);         // callback for when input is detected
   PDM.setBufferSize(bufferSize);       // set buffer size at 512 bytes
-  PDM.setGain(gain);                     // set sensitivity
+  PDM.setGain(gain);                   // set sensitivity
   bool success = PDM.begin(1, 16000);  // 1 channel, 16kHz
   if (!success) {
     Serial.println("Failed to start PDM mic!");
@@ -27,16 +31,20 @@ void initializeMicrophone() {
   }
 }
 
-// callback for analog signal inputs
+/*
+* callback for analog signal inputs
+*/
 void onMicReceive() {
   int bytes = PDM.available();
   PDM.read(sampleBuffer, bytes);  // read the sample from the buffer
   samplesRead = bytes / 2;        // 2 bytes per sample
 }
 
-// how to process microphone inputs
+/*
+* how to process microphone inputs
+*/
 void processMicrophoneData() {
-  if (samplesRead == 0) return;
+  if (samplesRead < inputLength) return;
 
   bool triggered = false;
   int peak = 0;
@@ -51,12 +59,23 @@ void processMicrophoneData() {
 
   samplesRead = 0;
 
-  if (triggered) {
-    Serial.print("Peak: ");
-    Serial.println(peak);
-    // ============================
-    // CALL ML INFERENCE LOGIC HERE
-    // =============================
-    isCorrectable(simulatedPrediction);  // simulate ML
+  if (!triggered) return;
+
+  Serial.print("Peak: ");
+  Serial.println(peak);
+
+  populateInputTensor(sampleBuffer, inputLength);
+
+  // run inference
+  if (!getInference()) {
+    Serial.println("Inference failed");
+    samplesRead = 0;  // reset samples if failed
+    return;
   }
+  printModelOutputs();
+
+
+  float confidence = 0.0f;
+  int topClass = getTopPrediction(confidence);
+  isCorrectable(vocalization_labels[topClass]);  // simulate ML
 }
