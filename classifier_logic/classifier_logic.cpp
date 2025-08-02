@@ -1,45 +1,63 @@
+#include <ArduTFLite.h>
 #include "classifier_logic.h"
-#include "MicroTFLite.h"
-#include "../audio_classifier/audio_classifier.h"
-#include "../correctionConfig/correctionConfig.h"
+#include "../audio_classifier/audio_classifier.h"  // model array header
 
 // extern global vars from main
 extern const char* vocalization_labels[];
 extern const int num_vocalizations;
-
 /*
 * Initialize the Audio Classification Model
 */
 void initialize_classifier(uint8_t* tensorArena, int tensorArenaSize) {
   Serial.println();
-  Serial.println("Init model...");
-  bool success = ModelInit(audio_classifier, tensorArena, tensorArenaSize);
-  Serial.println("Init complete?");
-  if (!success) {
+  bool modelInitialized = modelInit(audio_classifier, tensorArena, tensorArenaSize);
+  if (!modelInitialized) {
     Serial.println("Model initialization failed!");
-    while (true)
-      ;
+    while (true) {}
   }
-  // Serial.println("Init model..");
-  // if (!ModelInit(audio_classifier, tensorArena, tensorArenaSize)) {
-  //   Serial.println("Model initialization failed!");
-  //   while (true)
-  //     ;
-  // }
-  Serial.println("Model initialization Complete.");
-  ModelPrintMetadata();  // [IMPORTANT] use the logged tensor arena size to adjust the global arena size
-  ModelPrintTensorQuantizationParams();
-  ModelPrintTensorInfo();
-  Serial.println();
+  Serial.println("Model initialization complete.");
+}
+
+/*
+* Convert audio samples to the normalized range the model expects
+*/
+uint8_t quantizeSample(int16_t sample) {
+  // Convert 16-bit PCM to 0..255
+  float normalized = (sample + 32768) / 65535.0f;
+  return (uint8_t)(normalized * 255);
 }
 
 /*
 *  Fill input tensor with normalized data
 */
 void populateInputTensor(short* buffer, int length) {
-  Serial.println("Populating Input Tensor...");
-  for (int i = 0; i < length; i++) {
-    ModelSetInput((float)(buffer[i] >> 8), i);  // convert 16-bit input to 8-bit for model
+  int samplesToProcess = min(length, INPUT_LENGTH);
+
+  Serial.print("Buffer length: ");
+  Serial.print(length);
+  Serial.print(", processing ");
+  Serial.print(samplesToProcess);
+  Serial.println(" samples");
+
+  extern TfLiteTensor* tflInputTensor;  // get input tensor from ArduTFLite
+
+  // Use tensor quantization params
+  float scale = tflInputTensor->params.scale;
+  int zero_point = tflInputTensor->params.zero_point;
+
+  for (int i = 0; i < samplesToProcess; ++i) {
+    float value = static_cast<float>(buffer[i]);  
+    int32_t quantized = static_cast<int32_t>(value / scale) + zero_point;
+
+    // keep in valid uint8 range
+    quantized = max(0, min(255, quantized));
+
+    modelSetInput((uint8_t)quantized, i);
+  }
+
+  // pad with zero
+  for (int i = samplesToProcess; i < INPUT_LENGTH; ++i) {
+    modelSetInput(zero_point, i);  // Fill with silence
   }
 }
 
@@ -47,7 +65,11 @@ void populateInputTensor(short* buffer, int length) {
 *  Run inference and return status
 */
 bool getInference() {
-  return ModelRunInference();
+  if (!modelRunInference()) {
+    Serial.println("Inference failed!");
+    return false;
+  }
+  return true;
 }
 
 /*
@@ -57,9 +79,9 @@ int getTopPrediction(float& confidence) {
   confidence = 0.0f;
   int index = 0;
   for (int i = 0; i < num_vocalizations; i++) {
-    float value = ModelGetOutput(i);
-    if (value > confidence) {
-      confidence = value;
+    float val = modelGetOutput(i);
+    if (val > confidence) {
+      confidence = val;
       index = i;
     }
   }
@@ -73,7 +95,7 @@ void printModelOutputs() {
   for (int i = 0; i < num_vocalizations; i++) {
     Serial.print(vocalization_labels[i]);
     Serial.print(": ");
-    Serial.print(ModelGetOutput(i) * 100.0f, 2);
+    Serial.print(modelGetOutput(i));
     Serial.println("%");
   }
   Serial.println();

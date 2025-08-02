@@ -22,20 +22,20 @@ Incorporate MicroTFLite to utilize my machine learning model for inferences
 Used example file https://github.com/johnosbb/MicroTFLite/tree/main/examples/ArduinoNano33BLE_GestureClassifier
 */
 
-#include <ArduinoBLE.h>   // bluetooth
-#include <PDM.h>          // built-in microphone
-#include "MicroTFLite.h"  // TF Lite header
+/*
+1August - switched off of MicroTFLite due to complications, using raw TF Lite Micro library installed through git clone
 
+*/
+
+#include <ArduinoBLE.h>  // bluetooth
+#include <PDM.h>         // built-in microphone
+#include <ArduTFLite.h>  // TF Lite for Arduino
+
+#include "audio_classifier/audio_classifier.cpp"  // custom audio classification model
 #include "bluetooth/bluetooth.cpp"                // bluetooth logic
 #include "microphone/microphone.cpp"              // microphone logic
 #include "correctionConfig/correctionConfig.cpp"  // user config and correction logic header
-#include "audio_classifier/audio_classifier.cpp"  // custom audio classification model
 #include "classifier_logic/classifier_logic.cpp"  // embedded logic for the ml model
-
-// #include "microphone/microphone.h"
-// #include "bluetooth/bluetooth.h"
-// #include "correctionConfig/correctionConfig.h"
-// #include "audio_classifier/audio_classifier.h"
 
 // TODO: Figure out config storage that's board compatible
 
@@ -45,8 +45,8 @@ BLEByteCharacteristic bitmask("2A56", BLEWrite);  // define the received byte
 
 // set default user configuration global
 // const uint8_t defaultConfig = 0b0000; // no vocalization corrections
-const uint8_t defaultConfig = 0b1111; // all vocalization corrected
-uint8_t bitmaskConfig;  // init config variable
+const uint8_t defaultConfig = 0b1111;  // all vocalization corrected
+uint8_t bitmaskConfig;                 // init config variable
 
 // configure built-in microphone globals
 const int sr = 16000;                // mic sample rate
@@ -57,10 +57,11 @@ volatile int samplesRead = 0;        // TEST VAR
 
 // [IMPORTANT] ADJUST ARENA SIZE AFTER INITIAL SETUP
 
-// configure audio classifier
-const int inputLength = 1024;                                                                  // input dimension
-constexpr int tensorArenaSize = 8 * 1024;                                                      // [ESTIMATED] Tensor Arena size
-alignas(16) byte tensorArena[tensorArenaSize];                                                 // Tensor Arena memory
+// configure audio classifier memory
+// [ESTIMATED] Tensor Arena size
+constexpr int tensorArenaSize = 8 * 1024;       // 8 kb
+alignas(16) byte tensorArena[tensorArenaSize];  // Tensor Arena memory
+
 const char* vocalization_labels[] = { "bark", "growl", "whine", "howl" };                      // Vocalization labels
 const int num_vocalizations = (sizeof(vocalization_labels) / sizeof(vocalization_labels[0]));  // Number of vocalizations
 
@@ -108,8 +109,8 @@ void initializeSerial() {
   // int serialBaud = 1000000; // 1mb baud for serial connection
   int serialBaud = 500000;   // 500kb baud for test, allow for println
   Serial.begin(serialBaud);  // init Serial
-  while (!Serial)
-    ;  // wait for Serial
+  while (!Serial)            // 5s timeout when waiting for serial
+    ;
   Serial.print("Serial initialized at : ");
   Serial.println(serialBaud);
 }
